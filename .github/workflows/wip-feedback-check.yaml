@@ -30,9 +30,12 @@ jobs:
         run: make proto-generate
       - name: Check protobuf compatibility
         run: make proto-breaking PROTO_BREAKING_BRANCH=upstream/main
+      - name: Format Go
+        working-directory: go
+        run: gofmt -w core api
       - name: Export generated changes
         run: |
-          git add -A go/api/gen ui/src/generated python/packages/kagent-proto/src
+          git add -A go ui/src/generated python/packages/kagent-proto/src
           git diff --cached --binary > generated.patch
           git diff --cached --stat
       - uses: actions/upload-artifact@v4

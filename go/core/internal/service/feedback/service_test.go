@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	apiv1 "github.com/kagent-dev/kagent/go/api/gen/kagent/api/v1"
 	"github.com/kagent-dev/kagent/go/core/internal/database"
@@ -49,9 +50,9 @@ func (s *testStore) UpsertSessionFeedback(_ context.Context, feedback *apiv1.Fee
 	if s.err != nil {
 		return nil, s.err
 	}
-	stored := *feedback
+	stored := proto.CloneOf(feedback)
 	stored.Creator = userID
-	return &stored, nil
+	return stored, nil
 }
 
 func (s *testStore) ListSessionFeedback(_ context.Context, query database.FeedbackQuery) ([]*apiv1.Feedback, error) {

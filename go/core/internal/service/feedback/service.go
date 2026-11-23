@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -194,7 +195,7 @@ func validateCreate(request CreateRequest) (string, error) {
 		request.Rating != apiv1.FeedbackRating_FEEDBACK_RATING_NEGATIVE {
 		return "", serviceerrors.NewInvalidArgument("issue_type may only be set on a negative rating", nil)
 	}
-	if len([]rune(request.Comment)) > maxCommentRunes {
+	if utf8.RuneCountInString(request.Comment) > maxCommentRunes {
 		return "", serviceerrors.NewInvalidArgument(fmt.Sprintf("comment must be at most %d characters", maxCommentRunes), nil)
 	}
 	return sessionID, nil
