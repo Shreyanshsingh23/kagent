@@ -1,0 +1,80 @@
+# Scratch workflow for developing on a fork. Not part of the upstream change.
+name: WIP feedback check
+
+on:
+  push:
+    branches: ["wip/**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Fetch upstream main
+        run: |
+          git remote add upstream https://github.com/kagent-dev/kagent.git
+          git fetch --no-tags upstream main
+      - name: Lint protobuf
+        run: make proto-lint
+      - name: Generate protobuf
+        run: make proto-generate
+      - name: Check protobuf compatibility
+        run: make proto-breaking PROTO_BREAKING_BRANCH=upstream/main
+      - name: Export generated changes
+        run: |
+          git add -A go/api/gen ui/src/generated python/packages/kagent-proto/src
+          git diff --cached --binary > generated.patch
+          git diff --cached --stat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-patch
+          path: generated.patch
+
+  test:
+    needs: generate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-patch
+      - name: Apply generated code
+        run: |
+          if [ -s generated.patch ]; then git apply --index generated.patch; fi
+          rm generated.patch
+      - name: gofmt
+        working-directory: go
+        run: test -z "$(gofmt -l ./core ./api 2>&1 | tee /dev/stderr)"
+      - name: Build and vet
+        working-directory: go
+        run: |
+          go build ./...
+          go vet ./core/internal/database ./core/internal/service/feedback ./core/internal/grpcserver ./core/pkg/migrations ./core/pkg/app ./core/test/e2e
+      - name: Focused race tests (PostgreSQL via testcontainers)
+        working-directory: go
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: go test -race -count=1 ./core/internal/database ./core/pkg/migrations ./core/internal/service/feedback ./core/internal/grpcserver
+      - name: Full unit tests
+        working-directory: go
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: make test
+      - name: Lint
+        if: always()
+        working-directory: go
+        run: make lint
