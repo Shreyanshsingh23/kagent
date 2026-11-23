@@ -20,6 +20,7 @@ the agent processes.
 | `Sandbox` | PostgreSQL, exposed by gRPC and MCP | Owner-scoped scratch environment with process/file access and expiration |
 | A2A context, task, and events | PostgreSQL, exposed by A2A               | Durable interaction and audit history                                         |
 | checkpoint                    | PostgreSQL plus a Substrate snapshot tag | Immutable, named restart boundary                                             |
+| feedback | PostgreSQL, exposed by gRPC | A Session owner's rating of the Session or one of its replies |
 | Actor and durable directory   | Substrate                                | Process lifecycle and private runtime state                                   |
 
 `Session` is not a Kubernetes resource. A2A owns public interaction
@@ -30,7 +31,7 @@ semantics; kagent does not maintain a parallel session or task API.
 | Surface         | Role                                                                        |
 | --------------- | --------------------------------------------------------------------------- |
 | Kubernetes API  | Author Agents, Harnesses, AgentTemplates, SandboxTemplates, models, prompts, and remote MCP servers   |
-| gRPC / gRPC-Web | Manage Sessions, sharing, checkpoints, sandboxes, and control-plane reads        |
+| gRPC / gRPC-Web | Manage Sessions, sharing, checkpoints, feedback, sandboxes, and control-plane reads |
 | A2A             | Invoke agents and manage durable tasks and streams                          |
 | MCP             | Discover, invoke, checkpoint, and fork Sessions; create and use standalone sandboxes |
 
@@ -112,6 +113,7 @@ cleanup. Session lifecycle workers independently pause/suspend idle Actors.
 - [A2A metadata](a2a-metadata.md)
 - [OIDC proxy authentication](oidc-proxy-authentication.md)
 - [Persistence, checkpoints, and forks](persistence-checkpoints-and-forks.md)
+- [Session feedback](session-feedback.md)
 - [MCP](mcp.md)
 - [A2A agent tools](a2a-subagents.md)
 - [Human in the loop](human-in-the-loop.md)

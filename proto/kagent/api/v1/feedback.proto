@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package kagent.api.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "kagent/api/v1/common.proto";
+
+option go_package = "github.com/kagent-dev/kagent/go/api/gen/kagent/api/v1;apiv1";
+
+// Records a reader's rating of a Session they own, or of one reply in it.
+// Feedback lives and dies with its Session: deleting the Session deletes it.
+service FeedbackService {
+  // Rates a Session, or one of its replies when task_id is set. Rating the same
+  // target again replaces the caller's earlier rating instead of adding another.
+  rpc CreateFeedback(CreateFeedbackRequest) returns (CreateFeedbackResponse);
+  // Lists the caller's feedback, oldest first.
+  rpc ListFeedback(ListFeedbackRequest) returns (ListFeedbackResponse);
+  rpc DeleteFeedback(DeleteFeedbackRequest) returns (DeleteFeedbackResponse);
+}
+
+enum FeedbackRating {
+  FEEDBACK_RATING_UNSPECIFIED = 0;
+  FEEDBACK_RATING_POSITIVE = 1;
+  FEEDBACK_RATING_NEGATIVE = 2;
+}
+
+// What went wrong in a negatively rated reply.
+enum FeedbackIssueType {
+  FEEDBACK_ISSUE_TYPE_UNSPECIFIED = 0;
+  FEEDBACK_ISSUE_TYPE_INSTRUCTIONS = 1;
+  FEEDBACK_ISSUE_TYPE_FACTUAL = 2;
+  FEEDBACK_ISSUE_TYPE_INCOMPLETE = 3;
+  FEEDBACK_ISSUE_TYPE_TOOL = 4;
+  FEEDBACK_ISSUE_TYPE_OTHER = 5;
+}
+
+message Feedback {
+  string id = 1;
+  string session_id = 2;
+  // The rated reply. Empty when the feedback rates the whole Session.
+  string task_id = 3;
+  // Output only. The caller who gave the rating.
+  string creator = 4;
+  FeedbackRating rating = 5;
+  string comment = 6;
+  // Set only on negative ratings.
+  FeedbackIssueType issue_type = 7;
+  // Output only. The Agent the Session runs, captured when it was rated.
+  ResourceReference agent = 8;
+  // Output only. The Session's prepared revision when it was last rated, so
+  // ratings can be compared across an Agent's revisions.
+  string prepared_revision = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateFeedbackRequest {
+  option (buf.validate.message).cel = {
+    id: "feedback.issue_type_requires_negative_rating"
+    message: "issue_type may only be set on a negative rating"
+    expression: "this.issue_type == 0 || this.rating == 2"
+  };
+  string session_id = 1 [(buf.validate.field).string.uuid = true];
+  // Optional. Rates one reply of the Session instead of the whole Session.
+  string task_id = 2 [(buf.validate.field) = {
+    ignore: IGNORE_IF_ZERO_VALUE
+    string: {
+      max_len: 256
+      pattern: "^[^\\p{Z}\\p{Cc}]+$"
+    }
+  }];
+  FeedbackRating rating = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string comment = 4 [(buf.validate.field).string.max_len = 2000];
+  FeedbackIssueType issue_type = 5 [(buf.validate.field).enum.defined_only = true];
+}
+
+message CreateFeedbackResponse {
+  Feedback feedback = 1;
+}
+
+message ListFeedbackRequest {
+  // Optional filters. Unset filters match every feedback entry.
+  string session_id = 1 [(buf.validate.field) = {
+    ignore: IGNORE_IF_ZERO_VALUE
+    string: {uuid: true}
+  }];
+  ResourceReference agent = 2;
+  FeedbackRating rating = 3 [(buf.validate.field).enum.defined_only = true];
+  PageRequest page = 4;
+}
+
+message ListFeedbackResponse {
+  repeated Feedback feedback = 1;
+  PageResponse page = 2;
+}
+
+message DeleteFeedbackRequest {
+  string feedback_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteFeedbackResponse {}

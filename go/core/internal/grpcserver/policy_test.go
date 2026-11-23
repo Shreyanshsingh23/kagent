@@ -90,6 +90,44 @@ func TestReadOnlyShareCannotRenameAConversation(t *testing.T) {
 	}
 }
 
+// TestFeedbackServicePoliciesMatchTheirEffect pins the access mode of every
+// FeedbackService method. Rating is a write, so a read-only share link must not
+// reach it.
+func TestFeedbackServicePoliciesMatchTheirEffect(t *testing.T) {
+	policies := DefaultMethodPolicies()
+	for _, test := range []struct {
+		name   string
+		method string
+		want   pkgauth.AccessMode
+	}{
+		{name: "create", method: apiv1.FeedbackService_CreateFeedback_FullMethodName, want: pkgauth.AccessCreate},
+		{name: "list", method: apiv1.FeedbackService_ListFeedback_FullMethodName, want: pkgauth.AccessRead},
+		{name: "delete", method: apiv1.FeedbackService_DeleteFeedback_FullMethodName, want: pkgauth.AccessDelete},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, ok := policies[test.method]
+			if !ok {
+				t.Fatalf("%s has no policy; an unconfigured method is denied outright", test.method)
+			}
+			if got != test.want {
+				t.Fatalf("%s policy = %q, want %q", test.method, got, test.want)
+			}
+		})
+	}
+}
+
+func TestReadOnlyShareCannotRateAConversation(t *testing.T) {
+	t.Run("Given a read-only share link, when its holder rates the conversation, assert that the call is denied", func(t *testing.T) {
+		shareStore := &testShareStore{
+			sessionShare: &apiv1.SessionShare{SessionId: testSessionID.String()}, ownerUserID: "owner",
+		}
+		ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs("x-share-token", "token"))
+		session := &testSession{principal: pkgauth.Principal{ID: "visitor"}}
+		_, err := authenticate(ctx, apiv1.FeedbackService_CreateFeedback_FullMethodName, &testAuthenticator{session: session}, shareStore, DefaultMethodPolicies(), nil, nil)
+		require.Equal(t, codes.PermissionDenied, status.Code(err), "%v", err)
+	})
+}
+
 func TestAgentIdentityRequiresItsOwnAuthenticator(t *testing.T) {
 	method := apiv1.AgentIdentityService_ResolveAgentIdentity_FullMethodName
 	policies := DefaultMethodPolicies()

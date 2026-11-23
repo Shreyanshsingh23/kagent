@@ -344,5 +344,8 @@ func releaseAgentRuntimeReferences(ctx context.Context, tx pgx.Tx, id uuid.UUID)
 	if err := execSQL(ctx, tx, `UPDATE session SET pinned_checkpoint_id = NULL WHERE id = $1`, id); err != nil {
 		return err
 	}
+	if err := execSQL(ctx, tx, `DELETE FROM session_feedback WHERE session_id = $1`, id); err != nil {
+		return err
+	}
 	return execSQL(ctx, tx, `DELETE FROM session_share WHERE session_id = $1`, id)
 }

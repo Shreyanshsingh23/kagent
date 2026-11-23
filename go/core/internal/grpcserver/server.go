@@ -30,6 +30,7 @@ import (
 	"github.com/kagent-dev/kagent/go/core/internal/service/agentidentity"
 	"github.com/kagent-dev/kagent/go/core/internal/service/bootstrap"
 	"github.com/kagent-dev/kagent/go/core/internal/service/checkpoint"
+	"github.com/kagent-dev/kagent/go/core/internal/service/feedback"
 	"github.com/kagent-dev/kagent/go/core/internal/service/kubecrud"
 	memoryservice "github.com/kagent-dev/kagent/go/core/internal/service/memory"
 	modelservice "github.com/kagent-dev/kagent/go/core/internal/service/model"
@@ -73,6 +74,7 @@ type Config struct {
 	TaskStoreService       *taskstore.Service
 	SessionService         *sessionsvc.Service
 	CheckpointService      *checkpoint.Service
+	FeedbackService        *feedback.Service
 	ScheduledRunService    *scheduledrun.Service
 	A2AHandler             a2asrv.RequestHandler
 	SandboxTemplateService *kubecrud.Service[*v1alpha3.SandboxTemplate, *v1alpha3.SandboxTemplateList]
@@ -159,6 +161,7 @@ func New(config Config) (*Server, error) {
 	apiv1.RegisterSessionServiceServer(grpcServer, &sessionServer{service: config.SessionService})
 	apiv1.RegisterScheduledRunServiceServer(grpcServer, &scheduledRunServer{service: config.ScheduledRunService})
 	apiv1.RegisterCheckpointServiceServer(grpcServer, &checkpointServer{service: config.CheckpointService})
+	apiv1.RegisterFeedbackServiceServer(grpcServer, &feedbackServer{service: config.FeedbackService})
 	// The pinned SDK gRPC handler drops the next-page token for push config List.
 	// Override only that method until upstream preserves the service response.
 	a2apb.RegisterA2AServiceServer(grpcServer, &pushListGRPCHandler{

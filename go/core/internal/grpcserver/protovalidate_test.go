@@ -2,6 +2,7 @@ package grpcserver
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,6 +67,16 @@ func TestSessionRequestValidation(t *testing.T) {
 		{"checkpoint without selected task", &apiv1.CreateCheckpointRequest{SessionId: "11111111-1111-4111-8111-111111111111", RequestId: "request"}, false},
 		{"checkpoint selected task", &apiv1.CreateCheckpointRequest{SessionId: "11111111-1111-4111-8111-111111111111", RequestId: "request", ExpectedHeadTaskId: "task"}, true},
 		{"checkpoint rename control character", &apiv1.UpdateCheckpointNameRequest{CheckpointId: "11111111-1111-4111-8111-111111111111", Name: "first\nsecond"}, false},
+		{"session rating", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_POSITIVE}, true},
+		{"reply rating with issue", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", TaskId: "task-1", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_NEGATIVE, IssueType: apiv1.FeedbackIssueType_FEEDBACK_ISSUE_TYPE_TOOL, Comment: "line one\nline two"}, true},
+		{"rating missing", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111"}, false},
+		{"rating undefined", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", Rating: 9}, false},
+		{"issue on positive rating", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_POSITIVE, IssueType: apiv1.FeedbackIssueType_FEEDBACK_ISSUE_TYPE_TOOL}, false},
+		{"rated task with whitespace", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", TaskId: "task 1", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_POSITIVE}, false},
+		{"comment too long", &apiv1.CreateFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_NEGATIVE, Comment: strings.Repeat("x", 2001)}, false},
+		{"list without filters", &apiv1.ListFeedbackRequest{}, true},
+		{"list by session and rating", &apiv1.ListFeedbackRequest{SessionId: "11111111-1111-4111-8111-111111111111", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_NEGATIVE}, true},
+		{"list by invalid agent", &apiv1.ListFeedbackRequest{Agent: &apiv1.ResourceReference{Namespace: "team-a", Name: "NOT A NAME"}}, false},
 		{"share without ttl", &apiv1.CreateSessionShareRequest{SessionId: "11111111-1111-4111-8111-111111111111"}, true},
 		{"share positive ttl", &apiv1.CreateSessionShareRequest{SessionId: "11111111-1111-4111-8111-111111111111", Ttl: durationpb.New(time.Hour)}, true},
 		{"share zero ttl", &apiv1.CreateSessionShareRequest{SessionId: "11111111-1111-4111-8111-111111111111", Ttl: durationpb.New(0)}, false},
@@ -99,6 +110,9 @@ func TestInvalidSessionAndCheckpointIDsNeverReachHandlers(t *testing.T) {
 		&apiv1.DeleteCheckpointRequest{CheckpointId: "invalid"},
 		&apiv1.ForkSessionRequest{CheckpointId: "invalid", RequestId: "request"},
 		&apiv1.UpdateCheckpointNameRequest{CheckpointId: "invalid"},
+		&apiv1.CreateFeedbackRequest{SessionId: "invalid", Rating: apiv1.FeedbackRating_FEEDBACK_RATING_POSITIVE},
+		&apiv1.ListFeedbackRequest{SessionId: "invalid"},
+		&apiv1.DeleteFeedbackRequest{FeedbackId: "invalid"},
 	}
 	for _, request := range requests {
 		t.Run(string(proto.MessageName(request)), func(t *testing.T) {

@@ -320,7 +320,7 @@ func TestBuiltinMigrationsRoundTrip(t *testing.T) {
 	for _, source := range sources {
 		expected := []int64{0, 1}
 		if source.Name == "core" {
-			expected = append(expected, 2, 3)
+			expected = append(expected, 2, 3, 4)
 		}
 		if versions := testVersions(t, dsn, source.TrackingTable); !slices.Equal(versions, expected) {
 			t.Fatalf("%s versions = %v, want %v", source.Name, versions, expected)
@@ -333,6 +333,9 @@ func TestBuiltinMigrationsRoundTrip(t *testing.T) {
 		if !testColumnExists(t, dsn, table, "grant_destinations") || !testColumnExists(t, dsn, table, "grant_credentials") {
 			t.Fatalf("%s source grants are missing", table)
 		}
+	}
+	if !testTableExists(t, dsn, "session_feedback") {
+		t.Fatal("session feedback table is missing")
 	}
 	if !testColumnExists(t, dsn, "session", "deletion_reason") {
 		t.Fatal("session deletion reason is missing")
@@ -354,6 +357,10 @@ func TestBuiltinMigrationsRoundTrip(t *testing.T) {
         INSERT INTO sandbox (id, namespace, sandbox_template_name, revision_receipt, request_hash, expires_at, data)
         SELECT id, 'default', 'scratch', 'revision', $2, NOW() + interval '1 hour', $3 FROM created`, sandboxID, make([]byte, 32), []byte{})
 	execSQL(t, dsn, "INSERT INTO session_task (history_id, id, state, data) VALUES ($1, 'task', 'TASK_STATE_INPUT_REQUIRED', $2)", historyID, []byte{})
+	execSQL(t, dsn, `INSERT INTO session_feedback (id, session_id, history_id, task_id, user_id, rating, issue_type, comment,
+        agent_namespace, agent_name, prepared_revision, created_at, updated_at)
+        VALUES ($1, $2, $3, 'task', 'user', 'FEEDBACK_RATING_NEGATIVE', 'FEEDBACK_ISSUE_TYPE_TOOL', '', 'default', 'agent', 'revision', NOW(), NOW())`,
+		"00000000-0000-0000-0000-000000000006", sessionID, historyID)
 	scheduleID := "00000000-0000-0000-0000-000000000003"
 	executionID := "00000000-0000-0000-0000-000000000004"
 	execSQL(t, dsn, `INSERT INTO scheduled_run (id, creator, request_id, request_hash, data)

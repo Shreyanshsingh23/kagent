@@ -59,6 +59,7 @@ import (
 	"github.com/kagent-dev/kagent/go/core/internal/service/agentidentity"
 	"github.com/kagent-dev/kagent/go/core/internal/service/bootstrap"
 	"github.com/kagent-dev/kagent/go/core/internal/service/checkpoint"
+	"github.com/kagent-dev/kagent/go/core/internal/service/feedback"
 	"github.com/kagent-dev/kagent/go/core/internal/service/kubecrud"
 	memoryservice "github.com/kagent-dev/kagent/go/core/internal/service/memory"
 	modelservice "github.com/kagent-dev/kagent/go/core/internal/service/model"
@@ -375,6 +376,7 @@ func Run(ctx context.Context, input *configv1.ControllerConfig, opts Options) er
 	shareMaxTTL := cfg.GetSessions().GetShareMaxTtl().AsDuration()
 	sessions := sessionsvc.NewService(store, authorizer, sessionWorkflow, sessionsvc.WithShareMaxTTL(shareMaxTTL))
 	checkpoints := checkpoint.NewService(store, authorizer, actors, sessionWorkflow)
+	feedbacks := feedback.NewService(store, authorizer)
 	gatewayDialer, err := a2agateway.NewRuntimeDialer(
 		cfg.GetSubstrate(),
 		authenticator,
@@ -491,6 +493,7 @@ func Run(ctx context.Context, input *configv1.ControllerConfig, opts Options) er
 		EgressPolicyService:    kubecrud.NewService(manager.GetClient(), authorizer, &kagentv1alpha3.EgressPolicy{}, &kagentv1alpha3.EgressPolicyList{}, kagentv1alpha3.EgressPolicyKind),
 		SandboxService:         sandboxes,
 		CheckpointService:      checkpoints,
+		FeedbackService:        feedbacks,
 		A2AHandler:             gateway,
 		HTTPHandler:            mux,
 	})
