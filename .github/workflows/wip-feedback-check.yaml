@@ -71,7 +71,7 @@ jobs:
         working-directory: go
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
-        run: go test -race -count=1 ./core/internal/database ./core/pkg/migrations ./core/internal/service/feedback ./core/internal/grpcserver
+        run: go test -race -count=1 ./core/internal/database ./core/pkg/migrations ./core/internal/service/feedback
       - name: Full unit tests
         working-directory: go
         env:
